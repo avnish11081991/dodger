@@ -1,0 +1,74 @@
+import robocode.Robot;
+import robocode.*;
+
+public class robot extends AdvancedRobot 
+{
+  double previousEnergy = 100;
+	int movementDirection = 1;
+	int gunDirection = 1;
+	double changeInEnergy;
+	
+
+	public void run() 
+	{
+		setTurnGunRight(99999);
+	}
+
+	public void onScannedRobot(
+			ScannedRobotEvent e) 
+	{
+		// Stay at right angles to the opponent
+		setTurnRight(e.getBearing()+90-
+				30*movementDirection);
+		
+		/*The extra 30-degree incline causes the robot to be a bit aggressive
+		 * and move closer to its target over time. 
+		 */
+		
+		// If the bot has small energy drop,
+		// assume it fired
+
+		changeInEnergy =
+				previousEnergy-e.getEnergy();
+		
+		/*
+		 * Next is the key piece of code: if the robot senses an energy drop between 0.1 and 3.0 
+		 * (the range of firing power),
+		 * the robot will immediately switch directions and move to the left or right. 
+		 * Simple. It will switch the direction of its gun and radar sweep, assuming that if 
+		 * it saw a robot in its last sweep, it will find it again if it sweeps over the same area.
+		 */
+
+		if (changeInEnergy>0 &&
+				changeInEnergy<=3) 
+		{
+			// Dodge!
+			movementDirection =
+					-movementDirection;
+			setAhead((e.getDistance()/4+25)*movementDirection); //why 4 + 25? 
+		}
+
+		// When a bot is spotted,
+		// sweep the gun and radar
+
+		gunDirection = -gunDirection;
+
+		setTurnGunRight(99999*gunDirection);
+
+		// Fire directly at target
+
+		fire ( 1 ) ;
+
+		// Track the energy level
+		previousEnergy = e.getEnergy();
+	
+
+
+	}
+
+	/*
+	 * There are problems with this trick. 
+	 * The robot moves as soon as a bullet is fired, so that it may end up moving back into the line of fire. 
+	 * It might be better to move when the bullet is expected to arrive.
+	 */
+}
