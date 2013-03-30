@@ -1,6 +1,8 @@
 ///This is smoothhugger code. 
 /*I tried rounds of battle and though smoothhugger doesn't win all the rounds I is alwyas winning ani gravity robot so
-i think we nne to implement smoothhugger movement strategy*/
+i think we nne to implement smoothhugger movement strategy.
+I think its gun is good but we can combine with your guys gun and see if the combination works best . */
+
 
 
 package battleWin;
