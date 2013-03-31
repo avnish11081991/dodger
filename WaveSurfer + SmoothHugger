@@ -33,7 +33,7 @@ Some info about the battle field for WallSmoothing.
 
 /*
 Improvements - event - when hits another robot (especially when there are 14 other robots) it gets stuck in between them
-
+RamFire - kills this - 
 */
 
 	public static int BINS = 47;
