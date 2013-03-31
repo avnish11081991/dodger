@@ -31,6 +31,11 @@ Some info about the battle field for WallSmoothing.
 	 * 
 	 */
 
+/*
+Improvements - event - when hits another robot (especially when there are 14 other robots) it gets stuck in between them
+
+*/
+
 	public static int BINS = 47;
 	public static double _surfStats[] = new double[BINS];
 	public Point2D.Double _myLocation;     // our bot's location
