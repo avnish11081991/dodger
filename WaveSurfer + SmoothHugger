@@ -215,6 +215,23 @@ Some info about the battle field for WallSmoothing.
 			ahead(100);
 		}
 	}
+// This is another possible option for onHitRobot from Tracker Robot
+
+/*	public void onHitRobot(HitRobotEvent e) {
+		// Only print if he's not already our target.
+		if (trackName != null && !trackName.equals(e.getName())) {
+			out.println("Tracking " + e.getName() + " due to collision");
+		}
+		// Set the target
+		trackName = e.getName();
+		// Back up a bit.
+		// Note:  We won't get scan events while we're doing this!
+		// An AdvancedRobot might use setBack(); execute();
+		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
+		turnGunRight(gunTurnAmt);
+		fire(3);
+		back(50);
+	}*/
 
 	/*public void onBulletHitBullet(BulletHitBulletEvent e) {
     logAndRemoveWave(new Point2D.Double(e.getBullet().getX(),
