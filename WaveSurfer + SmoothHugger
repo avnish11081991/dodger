@@ -9,11 +9,9 @@ I think its gun is good but we can combine with your guys gun and see if the com
  */
 
 /*
-Improvements to be made - event - when hits another robot (especially when there are 14 other robots) it gets stuck in between them
-RamFire - kills this
+IMPROVEMENTS: 
 
-Custom Event Hit walls - keeps losing energy as a byproduct of hitting the walls
-
+Custom Event Hit walls - keeps losing energy as a byproduct of hitting the walls - I think there's code for avoiding walls. look into this
 
 Against SmoothHugger - they end up on the same plane of motion - need to be on a little different fields to really battle each other 
 
