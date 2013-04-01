@@ -1,5 +1,7 @@
+//Movement taken from Basic Wave Surfing Tutorial: http://robowiki.net/wiki/Wave_Surfing_Tutorial	
 
-	package team;
+
+package team;
 	import robocode.*;
 import robocode.util.Utils;
 import java.awt.Color;
