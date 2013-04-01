@@ -24,12 +24,12 @@ public class robot extends AdvancedRobot
     * (extending straight out the front or back) before touching a wall.
     */
     public static Rectangle2D.Double _fieldRect
-        = new java.awt.geom.Rectangle2D.Double(18, 18, 764, 564);
+        = new java.awt.geom.Rectangle2D.Double(18, 18, 1164, 1164);
     public static double WALL_STICK = 160;
  
     public void run() {
-        _enemyWaves = new ArrayList();
-        _surfDirections = new ArrayList();
+        _enemyWaves = new ArrayList(); // creates list of enemies' firing and movement information
+        _surfDirections = new ArrayList();	//
         _surfAbsBearings = new ArrayList();
  
         setAdjustGunForRobotTurn(true);
@@ -50,11 +50,12 @@ public class robot extends AdvancedRobot
             - getRadarHeadingRadians()) * 2);
  
         _surfDirections.add(0,
-            new Integer((lateralVelocity >= 0) ? 1 : -1));
+            new Integer((lateralVelocity >= 0) ? 1 : -1)); // if there is side-to-side motion, sets
         _surfAbsBearings.add(0, new Double(absBearing + Math.PI));
  
  
-        double bulletPower = _oppEnergy - e.getEnergy();
+        double bulletPower = _oppEnergy - e.getEnergy(); //opponents
+        
         if (bulletPower < 3.01 && bulletPower > 0.09
             && _surfDirections.size() > 2) {
             EnemyWave ew = new EnemyWave();
@@ -64,8 +65,8 @@ public class robot extends AdvancedRobot
             ew.direction = ((Integer)_surfDirections.get(2)).intValue();
             ew.directAngle = ((Double)_surfAbsBearings.get(2)).doubleValue();
             ew.fireLocation = (Point2D.Double)_enemyLocation.clone(); // last tick
- 
             _enemyWaves.add(ew);
+        
         }
  
         _oppEnergy = e.getEnergy();
@@ -77,7 +78,7 @@ public class robot extends AdvancedRobot
         updateWaves();
         doSurfing();
  
-        // gun code would go here...
+        // gun code would go here...************************************************
     }
     
     public void onHitByBullet(HitByBulletEvent e) {
@@ -92,7 +93,7 @@ public class robot extends AdvancedRobot
             for (int x = 0; x < _enemyWaves.size(); x++) {
                 EnemyWave ew = (EnemyWave)_enemyWaves.get(x);
  
-                if (Math.abs(ew.distanceTraveled -
+                if (Math.abs(ew.distanceTraveled - 
                     _myLocation.distance(ew.fireLocation)) < 50
                     && Math.abs(bulletVelocity(e.getBullet().getPower()) 
                         - ew.bulletVelocity) < 0.001) {
@@ -102,7 +103,8 @@ public class robot extends AdvancedRobot
             }
  
             if (hitWave != null) {
-                logHit(hitWave, hitBulletLocation);
+                logHit(hitWave, hitBulletLocation); //finds where we were hit and the x and y coordinates of the enemy bot
+                //for future reference
  
                 // We can remove this wave now, of course.
                 _enemyWaves.remove(_enemyWaves.lastIndexOf(hitWave));
@@ -139,7 +141,7 @@ public class robot extends AdvancedRobot
                 + limit(-maxTurning, moveAngle, maxTurning));
  
             // this one is nice ;). if predictedVelocity and moveDir have
-            // different signs you want to breack down
+            // different signs you want to brake down
             // otherwise you want to accelerate (look at the factor "2")
             predictedVelocity +=
                 (predictedVelocity * moveDir < 0 ? 2*moveDir : moveDir);
@@ -244,25 +246,26 @@ public class robot extends AdvancedRobot
     }
 
 class EnemyWave 
-  {
-        Point2D.Double fireLocation;
-        long fireTime;
-        double bulletVelocity, directAngle, distanceTraveled;
-        int direction;
+	{
+        Point2D.Double fireLocation; //point where enemy was when they fired
+        long fireTime; //time (tick) when bullet was fired
+        double bulletVelocity, directAngle, distanceTraveled; //information of bullet movement
+        int direction; //
  
         public EnemyWave() { }
     }
  
-    public double wallSmoothing(Point2D.Double botLocation, double angle, int orientation) 
+    public double wallSmoothing(Point2D.Double botLocation, double angle, int orientation) //takes x and y coordinates and makes sure
+    //we don't run in to the wall
     {
-        while (!_fieldRect.contains(project(botLocation, angle, WALL_STICK))) 
+        while (!_fieldRect.contains(project(botLocation, angle, WALL_STICK))) //tests to see if we are inside of the perimeter of the walls and turns
         {
             angle += orientation*0.05;
         }
         return angle;
     }
  
-    public static Point2D.Double project(Point2D.Double sourceLocation,
+    public static Point2D.Double project(Point2D.Double sourceLocation, // 
         double angle, double length) {
         return new Point2D.Double(sourceLocation.x + Math.sin(angle) * length,
             sourceLocation.y + Math.cos(angle) * length);
@@ -284,7 +287,7 @@ class EnemyWave
         return Math.asin(8.0/velocity);
     }
  
-    public static void setBackAsFront(AdvancedRobot robot, double goAngle) {
+    public static void setBackAsFront(AdvancedRobot robot, double goAngle) { //turns robot around efficiently
         double angle =
             Utils.normalRelativeAngle(goAngle - robot.getHeadingRadians());
         if (Math.abs(angle) > (Math.PI/2)) {
