@@ -13,11 +13,18 @@ import java.awt.geom.Point2D;
  *
  *Movement taken from Basic Wave Surfing Tutorial:       *http://robowiki.net/wiki/Wave_Surfing_Tutorial by Voidious
  * Gun and targeting  based on HawkOnFire by rozu.
- * Che moves by predicting enemies’ bullet path and “surfing” to the outside of this   *projected path. He fires by guessing where the en
+ * Che moves by predicting enemies’ bullet path and “surfing” to the outside of this *projected path.
+ *
+ * Targeting and Firing: 
+ * Head on targeting locks on to enemy til it dies.
+ * 
+ * Movement: Creates waves based on a drop in energy from enemy robots, 
+ * then uses predictive positioning to move to the safest area within the wave
+ * 
  */
 public class CheGuevara extends AdvancedRobot
 {
-  static Hashtable enemies = new Hashtable(); //creates a list to store enemy  //information in 
+	static Hashtable enemies = new Hashtable(); //creates a list to store enemy  //information in 
 	static enemy target; 
 	static Point2D.Double nextDestination; // the x and y coordinates for
 	//desired future destination
@@ -99,7 +106,8 @@ public class CheGuevara extends AdvancedRobot
 			moveDir = 1;
 
 			//changes the moveAngle and moveDir (from Rozu) 
-			if(Math.cos(moveAngle) < 0) {
+			if(Math.cos(moveAngle) < 0) 
+			{
 				moveAngle += Math.PI;
 				moveDir = -1;
 			}
