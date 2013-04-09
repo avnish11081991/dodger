@@ -1,0 +1,51 @@
+Gun Code
+
+setTurnRadarRightRadians(Math.asin(Math.sin(e.getBearingRadians() + getHeadingRadians() - getRadarHeadingRadians())));
+  	double bulletPower = Math.min(3.0,getEnergy());//calculates bullet power
+		double myX = getX();//gets my bots x coord
+		double myY = getY();//gets my bots y coord
+		double absoluteBearing = getHeadingRadians() + e.getBearingRadians();//gets difference between my bearing and enemy's bearing
+		double enemyX = getX() + e.getDistance() * Math.sin(absoluteBearing);//gets enemy's x coord
+		double enemyY = getY() + e.getDistance() * Math.cos(absoluteBearing);//gets enemy's y coord
+		double enemyHeading = e.getHeadingRadians();//gets enemy's heading
+		double oldEnemyHeading = 0;//where the enemy use to be heading
+		double enemyHeadingChange = enemyHeading - oldEnemyHeading;//change in enemy's heading
+		double enemyVelocity = e.getVelocity();//enemy speed
+		oldEnemyHeading = enemyHeading;
+		 
+		double deltaTime = 0; //measurement of change in time of enemy's position
+		double battleFieldHeight = getBattleFieldHeight(), //battle field height
+		       battleFieldWidth = getBattleFieldWidth();//battle field width
+		double predictedX = enemyX, predictedY = enemyY;//predicted x and y of enemy
+		while((++deltaTime) * (20.0 - 3.0 * bulletPower) < //predicting location of enemy based on heading and speed
+		      Point2D.Double.distance(myX, myY, predictedX, predictedY)){		
+			predictedX += Math.sin(enemyHeading) * enemyVelocity;
+			predictedY += Math.cos(enemyHeading) * enemyVelocity;
+			enemyHeading += enemyHeadingChange;
+			if(	predictedX < 18.0 
+				|| predictedY < 18.0
+				|| predictedX > battleFieldWidth - 18.0
+				|| predictedY > battleFieldHeight - 18.0){
+		 
+				//calculates predicts where the enemy robot will be assuming it does not hit
+				//the walls
+				predictedX = Math.min(Math.max(18.0, predictedX), 
+				    battleFieldWidth - 18.0);	
+				predictedY = Math.min(Math.max(18.0, predictedY), 
+				    battleFieldHeight - 18.0);
+				break;
+			}
+		}
+	
+		double theta = Utils.normalAbsoluteAngle(Math.atan2( //locks radar
+		    predictedX - getX(), predictedY - getY()));
+		 
+		setTurnRadarRightRadians(Utils.normalRelativeAngle(
+		    absoluteBearing - getRadarHeadingRadians()));
+		setTurnGunRightRadians(Utils.normalRelativeAngle(
+		    theta - getGunHeadingRadians()));
+		fire(3);//fires gun
+		if (peek) {
+			scan();}
+		
+	}
