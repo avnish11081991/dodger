@@ -168,27 +168,27 @@ public class emgfwsbot extends AdvancedRobot
 		      // Gun
 		      double bulletPower = 3 - ((20 - getEnergy()) / 6);
 		      
-		      if (getGunTurnRemaining() == 0) {
-		        setFire(bulletPower);
-		      }
-		      
-		      if (getOthers() == 1)
+		      if (getGunTurnRemaining() == 0) 
+			//getGunTurnRemaining returns the gun angle in radians, if it equals 0 fire!		
 		      {
-		    	  setFire(.75);
+		        setFire(bulletPower);
 		      }
 		 
 		      List<MeleeFiringAngle> firingAngles = new ArrayList<MeleeFiringAngle>();
-		      //creates the list of melee firing angles 
+		      //creates an array list storing firing angles 
 		      
 		      for (EnemyData enemyData : _enemies.values()) { 
 		        if (enemyData.alive) {
+			//track enemy distance and if they are alive
 		          double enemyDistance = enemyData.distance(myLocation);
 		          int bulletTicks =
 		              (int) (enemyDistance / Rules.getBulletSpeed(bulletPower));
+			//track the distance and decide the Bullet Speed and power, etc
 		          for (Point2D.Double vector : enemyData.lastVectors) {
 		            if (vector != null) {
 		              Point2D.Double projectedLocation = project(enemyData,
 		                  enemyData.heading + vector.x, vector.y * bulletTicks);
+				//based on enemy location and direction (where they are headed), decide on bullet ticks, etc
 		              if (_fieldRect.contains(projectedLocation)) {
 		                firingAngles.add(new MeleeFiringAngle(
 		                    absoluteBearing(myLocation, projectedLocation),
