@@ -1,0 +1,813 @@
+/* * REVISED and entitled: emgfwsbot
+ * Code: 6522 
+ * April 3, 2013
+ * Tank Review 
+ * Section 1 
+ * Professor Greg Anderson
+ * 
+ * **Note to self - this movement really sucks. need to fix it! 
+ * 
+ * *******************************************************************
+ * STRENGTHS:
+ * Wave Surfing - detects a drop in the enemy's energy to create a wave which enables the bot to statistically keep away from danger zones
+ * or areas where the bot thinks the bullet from the enemy may be. Especially useful for keeping away from bullets one on one with the enemy
+ * however, this does require a lot of energy and (math). This really highlights areas and the likliehood that the enemy fired at a specific area. 
+ * Precise Prediction - calculates areas of the wave that are safest AND that the bot could reach, tries to move to the safest of each wave 
+ * this is why the bot has a sort of back and forth motion sometimes and acts like SmoothHugger does sometimes. 
+ * 
+ * *************
+ * CHANGES I made: 
+ * Movement is not wave surfing when just running when it scans a robot it acts like a wave surfer. 
+ * Added a gun called the melee gun or shadow gun - does really really really well against all the robots (sample ones) 
+ * Doesn't survive like Walls - was only 1st one time out of ten in a ten rounds match... 
+ * 
+ * WHY? 
+ * The Gun works only with the movement pattern in the run() method. Also the movement pattern associated with the gun 
+ * helps the gun to work better in melee, then on a scanned bot - Which is most of the time with wave surfing it implements 
+ * the wave surfing technique.
+ * 
+ * WEAKNESSES and a log of attempts to strengthen them: 
+ * *******************************************************************
+ * Rams into bots without moving its gun to shoot them because its locked onto the bots
+ * Gun is very very basic - it locks onto targets even when those targets are at a far distance and the bullets can't reach the target
+ * Runs out of energy quickly because of its wave surfing movement to avoid bullets 
+ * With a lot of bots at first the bot doesn't know what to do and gets stuck in the crossfire 
+ * Targets bots and sticks with them when they are over a long span of distance and the 
+ * bullets it fires are way off target because of the distance
+ * Never survives - always the loser - comes in third against the sample bots and some nano melee bots 
+ * 
+ * Wave Surfing Weaknesses - does not keep its distance from the enemy, this makes predicting where the bullet will land in a 
+ * particular wave, it DOES NOT help in keeping away from the enemy 
+ * 
+ * Enemy Energy Tracking - the Enemy Wave Detection is not that great. It could be a lot better if there was more keeping 
+ * track of energy losses from hitting walls, firing bullets, etc. 
+ * 
+ * Segmentation - this is necessary because this bot currently really only avoids head-on targeting
+ * 
+ * No data or anything onBulletHitBullet - there is no information being gathered here and it could be useful 
+ * 
+ * Choice of Wave - right now the bot chooses the wave that is closest - but doesn't take into calculation the wave that contains the bullet
+ * that will hit it first
+ * 
+ * 
+ * *****************
+ * CHANGES I made - gun taken from Broken Sword from Voidious to understand more of the basics about shooting and targeting
+ * Changed the rectField - so that it wasn't hard coded in. It will get the height and width from the field from robocode and work within that context 
+ * Added a melee gun - it works really well against lots of robots 
+ * changed the firepower when there is only one other bot on the field to save energy and power when one on one 
+ * 
+ * New weakness! 
+ * Is not always first. Survival is significantly behind walls, even though it comes in first above walls in firepower. 
+ * *******************************************************************
+ * Changes to be made in the future: 
+ * Add a gun which is integrated into the bots wave surfing movement like Komarious. Integrate the movement, radar, and gun. 
+ * Detect where the enemy bot is and keep a certain distance away. 
+ * 
+ * This bot is really effective in its firing - but, its really bad at survival. In the future I would like to change the number of times it fires when there is 
+ * only one bot left - I would do this by firing a spread of bullets at a very low fire power. Because this bot is good at avoiding bullets I think this would
+ * be the most logical solution to surviving = energy conversion. 
+ * 
+ * *******************************************************************
+ * Movement taken from Basic Wave Surfing Tutorial: http://robowiki.net/wiki/Wave_Surfing_Tutorial by Voidious
+ * Gun and targeting  based on HawkOnFire by rozu. *Modified April 3 - based off of Broken Sword by Voidious
+ * Che moves by predicting enemies’ bullet path and “surfing” to the outside of this *projected path.
+ *
+ * Targeting and Firing: *modified April 3 to Broken Sword Gun and some of its movement by Voidious (followed copyright (see copyright below))
+ * Melee/Shadow Gun - GuessFactorTargeting through a radar lock 
+ * selects a target through deciding an a target with low energy and then also closest targets (a combination of those two)
+ * Builds off of HawkOnFire
+ * 
+ * Movement: Creates waves based on a drop in energy from enemy robots, 
+ * then uses predictive positioning to move to the safest area within the wave
+ * in the run method - utilizes a minimumriskmovement 
+ * in the onscannedrobot event - utilizes wave surfing
+ */
+
+/**
+ * Copyright (c) 2012 - Voidious - (only some aspects of the gun and targeting) 
+ *
+ * This software is provided 'as-is', without any express or implied
+ * warranty. In no event will the authors be held liable for any damages
+ * arising from the use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ *    1. The origin of this software must not be misrepresented; you must not
+ *    claim that you wrote the original software.
+ *
+ *    2. Altered source versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ *
+ *    3. This notice may not be removed or altered from any source
+ *    distribution.
+ */
+
+import robocode.*; //for the Advanced Robot or even the basic robot
+import robocode.util.Utils; //Utils
+import java.awt.Color; //color the bot
+import java.util.ArrayList; //for the collection of waves
+import java.util.HashMap;
+import java.util.List; //import List for radar/gun
+import java.util.Map;
+import java.awt.geom.Rectangle2D; //to create a box inside the battle field to protect the bot from the wall 
+import java.awt.geom.Point2D; //for the Point2D's
+
+public class emgfwsbot extends AdvancedRobot
+{  
+	private static final double TWO_PI = Math.PI * 2;
+	public static int BINS = 47; //enumerator
+	public static double _surfStats[] = new double[BINS]; //create array  to store surf stat //data
+	public Point2D.Double _myLocation;     // our bot's location
+	public Point2D.Double _enemyLocation;  // enemy bot's location
+	private static double _enemyAbsoluteBearing; //for the gun - the enemies absolute bearing
+
+	public static double _oppEnergy = 100.0; //starting energy for opponent  bot set to 100 
+
+	public ArrayList _enemyWaves; //array holding the data for enemy waves 
+	//note to self - an arraylist is a dynamic array, or basically it can be resized! (wikipedia)
+	public ArrayList _surfDirections; //array for robot surfing wave 
+	public ArrayList _surfAbsBearings; // direct line to find enemy tank
+	public ArrayList _recentLocations; //recent places for bot
+	private static Map<String, EnemyData> _enemies =
+			new HashMap<String, EnemyData>();
+
+
+	public static Rectangle2D.Double _fieldRect // x and y coordinates of playing field
+	= new java.awt.geom.Rectangle2D.Double(18, 18, 1164, 1164); //gives the bot its movement parameters so that it doesn’t run into the walls in a 1200 by 1200 space
+	//1200 x 1200 battlefield with simple, iterative WallSmoothing method (by PEZ)
+
+	public static double WALL_STICK = 160; //space we always have on both ends of the tank front and back 
+
+	private static String _nearestName; //of enemy bot
+	private static double _nearestDistance; //of enemy bot
+
+	public void run()
+	{
+		_fieldRect = new Rectangle2D.Double(50, 50, 
+				getBattleFieldWidth() - 100, getBattleFieldHeight() - 100);
+		_recentLocations = new ArrayList<Point2D.Double>();
+		_nearestDistance = Double.POSITIVE_INFINITY;
+
+		//sets color of the tank
+		setColors(Color.red,Color.red,Color.red);
+
+		_enemyWaves = new ArrayList(); //creates new array to store wave //surfing information
+		_surfDirections = new ArrayList();
+		_surfAbsBearings = new ArrayList();
+
+		_nearestDistance = Double.POSITIVE_INFINITY;
+
+		setAdjustGunForRobotTurn(true);	// gun turns independent of robot turning
+		setAdjustRadarForGunTurn(true);	// radar turns independent of gun turning
+
+		do {
+			Point2D.Double myLocation = myLocation();
+			_recentLocations.add(0, myLocation);
+
+			//***********************************************************************
+			// Gun
+			double bulletPower = 3 - ((20 - getEnergy()) / 6);
+
+			if (getGunTurnRemaining() == 0) 
+			{
+				setFire(bulletPower);
+			}
+
+			List<MeleeFiringAngle> firingAngles = new ArrayList<MeleeFiringAngle>();
+			//creates the list of melee firing angles 
+
+			for (EnemyData enemyData : _enemies.values()) { 
+				if (enemyData.alive) {
+					double enemyDistance = enemyData.distance(myLocation);
+					int bulletTicks =
+							(int) (enemyDistance / Rules.getBulletSpeed(bulletPower));
+					for (Point2D.Double vector : enemyData.lastVectors) {
+						if (vector != null) {
+							Point2D.Double projectedLocation = project(enemyData,
+									enemyData.heading + vector.x, vector.y * bulletTicks);
+							if (_fieldRect.contains(projectedLocation)) {
+								firingAngles.add(new MeleeFiringAngle(
+										absoluteBearing(myLocation, projectedLocation),
+										enemyDistance, 18 / enemyDistance));
+							}
+						}
+					}
+				}
+			}
+
+			try {
+				double bestDensity = 0;
+				for (int x = 0; x < 160; x++) {
+					double angle = Math.PI * x / 80;
+					double density = 0;
+					for (MeleeFiringAngle meleeAngle : firingAngles) {
+						double ux =
+								Math.abs(Utils.normalRelativeAngle(angle - meleeAngle.angle))
+								/ meleeAngle.bandwidth;
+						if (ux < 1) {
+							density += square(1 - square(ux)) / meleeAngle.distance;
+						}
+					}
+					if (density > bestDensity) {
+						bestDensity = density;
+						setTurnGunRightRadians(
+								Utils.normalRelativeAngle(angle - getGunHeadingRadians()));
+					}
+				}
+			} catch (NullPointerException npe) {
+				// expected before any scans
+			}
+
+			//***********************************************************************
+			//		      // Movement
+			//		      double bestRisk;
+			//		      try {
+			//		        bestRisk = evalDestinationRisk(_enemyLocation) * .85;
+			//		      } catch (NullPointerException ex) {
+			//		        bestRisk = Double.POSITIVE_INFINITY;
+			//		      }
+			//		      try {
+			//		        for (double d = 0; d < TWO_PI; d += 0.1) {
+			//		          Point2D.Double newDest = project(myLocation, d,
+			//		              Math.min(_nearestDistance, 100 + Math.random() * 500));
+			//		          double thisRisk = evalDestinationRisk(newDest);
+			//		          if (_fieldRect.contains(newDest) && thisRisk < bestRisk) {
+			//		            bestRisk = thisRisk;
+			//		            _enemyLocation = newDest;
+			//		          }
+			//		        }
+			//		 
+			//		        double angle = Utils.normalRelativeAngle(
+			//		            absoluteBearing(myLocation, _enemyLocation) - getHeadingRadians());
+			//		        setTurnRightRadians(Math.tan(angle));
+			//		        setAhead(Math.cos(angle) * Double.POSITIVE_INFINITY);
+			//		      } catch (NullPointerException ex) {
+			//		        // expected before we have a _destination
+			//		      }
+
+			//***********************************************************************
+			// Radar
+			setTurnRadarRightRadians(1);
+		
+			try {
+				long stalestTime = Long.MAX_VALUE;
+				for (EnemyData enemyData : _enemies.values()) {
+					if (getTime() > 20 && enemyData.alive
+							&& enemyData.lastScanTime < stalestTime) {
+						stalestTime = enemyData.lastScanTime;
+						setTurnRadarRightRadians(Math.signum(Utils.normalRelativeAngle(
+								absoluteBearing(myLocation, enemyData)
+								- getRadarHeadingRadians())));
+					}
+				}
+
+			} catch (NullPointerException npe) {
+				// expected before we have any scans
+			}
+			//***********************************************************************
+			
+			execute();
+			
+		} while (true);   
+
+
+
+	}
+	/******************PREDICTED POSITIONING ****************************/
+
+	public Point2D.Double predictPosition(EnemyWave surfWave, int direction) {
+		Point2D.Double predictedPosition = (Point2D.Double)_myLocation.clone(); //predicts position of enemy
+		double predictedVelocity = getVelocity(); //calls accessor getVelocity 
+		double predictedHeading = getHeadingRadians(); //calls getHeadingRadians
+		// above predicts the velocity and headings of the bot
+		double maxTurning, moveAngle, moveDir; //variables for positioning turning, angles and direction
+
+		int counter = 0; // number of ticks in the future
+
+		boolean intercepted = false;
+
+		do {  
+			// sets the moving angle of the robot by predicted positioning loops until intercepted is true
+			moveAngle =
+					wallSmoothing(predictedPosition, absoluteBearing(surfWave.fireLocation,
+							predictedPosition) + (direction * (Math.PI/2)), direction)
+							- predictedHeading;
+			moveDir = 1;
+
+			//changes the moveAngle and moveDir (from Rozu) 
+			if(Math.cos(moveAngle) < 0) 
+			{
+				moveAngle += Math.PI;
+				moveDir = -1;
+			}
+
+			moveAngle = Utils.normalRelativeAngle(moveAngle);
+
+			// maxTurning is built in like this, you can't turn more then this in one tick
+			maxTurning = Math.PI/720d*(40d - 3d*Math.abs(predictedVelocity));
+			predictedHeading = Utils.normalRelativeAngle(predictedHeading
+					+ limit(-maxTurning, moveAngle, maxTurning));
+
+			//if predicted velocity and moveDir are different then BRAKE, if not go faster 
+			predictedVelocity +=
+					(predictedVelocity * moveDir < 0 ? 2*moveDir : moveDir);
+			predictedVelocity = limit(-8, predictedVelocity, 8);
+
+			// calculate the new predicted position
+			predictedPosition = project(predictedPosition, predictedHeading,
+					predictedVelocity);
+
+			counter++;
+
+			//uses data from surfwave array to determine if the intercepted is true or false 
+			if (predictedPosition.distance(surfWave.fireLocation) <
+					surfWave.distanceTraveled + (counter * surfWave.bulletVelocity)
+					+ surfWave.bulletVelocity) {
+				intercepted = true;
+			}
+		} while(!intercepted && counter < 500);
+
+		return predictedPosition;
+	}
+
+	public double checkDanger(EnemyWave surfWave, int direction) 
+	{
+		int index = getFactorIndex(surfWave,
+				predictPosition(surfWave, direction));
+
+		return _surfStats[index];
+	}
+
+	/*it does the surfing . Predict our position when the wave intercepts us for each orbit direction. Get the score from our stat array for the GuessFactor of that position.Choose the orbit direction that is the safest. */
+	public void doSurfing() {
+		EnemyWave surfWave = getClosestSurfableWave(); //
+
+		if (surfWave == null) { return; }
+
+		double dangerLeft = checkDanger(surfWave, -1); //
+		double dangerRight = checkDanger(surfWave, 1);
+
+		double goAngle = absoluteBearing(surfWave.fireLocation, _myLocation);
+		if (dangerLeft < dangerRight) {
+			goAngle = wallSmoothing(_myLocation, goAngle - (Math.PI/2), -1);
+		} else {
+			goAngle = wallSmoothing(_myLocation, goAngle + (Math.PI/2), 1);
+		}
+
+		setBackAsFront(this, goAngle);
+	}
+
+	public void updateWaves() {
+		/*updates the distance each wave has traveled from the source and deletes any waves that have clearly passed us. Adds an extra 50 to give extra space... */
+		for (int x = 0; x < _enemyWaves.size(); x++) {
+			EnemyWave ew = (EnemyWave)_enemyWaves.get(x);
+
+			ew.distanceTraveled = (getTime() - ew.fireTime) * ew.bulletVelocity;
+			if (ew.distanceTraveled >
+			_myLocation.distance(ew.fireLocation) + 50) {
+				_enemyWaves.remove(x);
+				x--;
+			}
+		}
+	}
+
+	public void onScannedRobot(ScannedRobotEvent e) //scanned Robot Event! 
+	{
+		_myLocation = new Point2D.Double(getX(), getY());
+
+		double lateralVelocity = getVelocity()*Math.sin(e.getBearingRadians());
+		double absBearing = e.getBearingRadians() + getHeadingRadians();
+
+		setTurnRadarRightRadians(Utils.normalRelativeAngle(absBearing
+				- getRadarHeadingRadians()) * 2);
+
+		_surfDirections.add(0,
+				new Integer((lateralVelocity >= 0) ? 1 : -1)); // if there is side-to-side motion, sets
+		_surfAbsBearings.add(0, new Double(absBearing + Math.PI));
+
+
+		double bulletPower = _oppEnergy - e.getEnergy(); //calculates bullet power based on enemies energy and our own.
+
+		if (bulletPower < 3.01 && bulletPower > 0.09
+				&& _surfDirections.size() > 2) {
+			EnemyWave ew = new EnemyWave();
+			ew.fireTime = getTime() - 1;
+			ew.bulletVelocity = bulletVelocity(bulletPower);
+			ew.distanceTraveled = bulletVelocity(bulletPower);
+			ew.direction = ((Integer)_surfDirections.get(2)).intValue();
+			ew.directAngle = ((Double)_surfAbsBearings.get(2)).doubleValue();
+			ew.fireLocation = (Point2D.Double)_enemyLocation.clone(); // last tick
+
+			_enemyWaves.add(ew);
+		}
+
+		_oppEnergy = e.getEnergy();
+
+		// update after EnemyWave detection, because that needs the previous
+		// enemy location as the source of the wave
+		_enemyLocation = project(_myLocation, absBearing, e.getDistance());
+
+		updateWaves();
+		doSurfing();
+		//Gun Code
+		
+		if (getOthers() > 5)
+		{
+			double distance = e.getDistance();
+			String botName = e.getName();
+
+			if (!_enemies.containsKey(botName)) {
+				_enemies.put(botName, new EnemyData());
+			}
+
+			DisplacementTimer timer;
+			addCustomEvent(timer = new DisplacementTimer());
+			EnemyData enemyData = timer.enemyData = _enemies.get(botName);
+			enemyData.energy = e.getEnergy();
+			enemyData.alive = true;
+			enemyData.lastScanTime = getTime();
+
+			timer.displacementVector = (enemyData.lastVectors = enemyData.gunVectors
+					[(int) (distance / 300)]
+							[(int) (Math.abs(e.getVelocity()) / 4)])
+							[enemyData.nextIndex++ % 200] = new Point2D.Double(0, 0);
+
+			enemyData.setLocation(timer.targetLocation = project(
+					myLocation(), e.getBearingRadians() + getHeadingRadians(),
+					distance));
+
+			timer.bulletTicks = (int) (distance / 11);
+
+			timer.targetHeading = enemyData.heading = e.getHeadingRadians()
+					+ (e.getVelocity() < 0 ? Math.PI : 0);
+
+			if (distance < _nearestDistance || botName.equals(_nearestName)) {
+				_nearestDistance = distance;
+				_nearestName = botName;
+			}
+		}
+		
+		else
+		{
+			final double FIREPOWER = 2;
+			final double ROBOT_WIDTH = 16,ROBOT_HEIGHT = 16;
+			// Variables prefixed with e- refer to enemy, b- refer to bullet and r- refer to robot
+			final double eAbsBearing = getHeadingRadians() + e.getBearingRadians();
+			final double rX = getX(), rY = getY(),
+					bV = Rules.getBulletSpeed(FIREPOWER);
+			final double eX = rX + e.getDistance()*Math.sin(eAbsBearing),
+					eY = rY + e.getDistance()*Math.cos(eAbsBearing),
+					eV = e.getVelocity(),
+					eHd = e.getHeadingRadians();
+			// These constants make calculating the quadratic coefficients below easier
+			final double A = (eX - rX)/bV;
+			final double B = eV/bV*Math.sin(eHd);
+			final double C = (eY - rY)/bV;
+			final double D = eV/bV*Math.cos(eHd);
+			// Quadratic coefficients: a*(1/t)^2 + b*(1/t) + c = 0
+			final double a = A*A + C*C;
+			final double b = 2*(A*B + C*D);
+			final double c = (B*B + D*D - 1);
+			final double discrim = b*b - 4*a*c;
+			if (discrim >= 0) {
+				// Reciprocal of quadratic formula
+				final double t1 = 2*a/(-b - Math.sqrt(discrim));
+				final double t2 = 2*a/(-b + Math.sqrt(discrim));
+				final double t = Math.min(t1, t2) >= 0 ? Math.min(t1, t2) : Math.max(t1, t2);
+				// Assume enemy stops at walls
+				final double endX = limit1(
+						eX + eV*t*Math.sin(eHd),
+						ROBOT_WIDTH/2, getBattleFieldWidth() - ROBOT_WIDTH/2);
+				final double endY = limit1(
+						eY + eV*t*Math.cos(eHd),
+						ROBOT_HEIGHT/2, getBattleFieldHeight() - ROBOT_HEIGHT/2);
+
+				setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(
+						Math.atan2(endX - rX, endY - rY)
+						- getGunHeadingRadians()));
+				setFire(FIREPOWER);    
+			}
+		}
+
+		if (getOthers() == 1) 
+		{
+			final double FIREPOWER = 2;
+			final double ROBOT_WIDTH = 16,ROBOT_HEIGHT = 16;
+			// Variables prefixed with e- refer to enemy, b- refer to bullet and r- refer to robot
+			final double eAbsBearing = getHeadingRadians() + e.getBearingRadians();
+			final double rX = getX(), rY = getY(),
+					bV = Rules.getBulletSpeed(FIREPOWER);
+			final double eX = rX + e.getDistance()*Math.sin(eAbsBearing),
+					eY = rY + e.getDistance()*Math.cos(eAbsBearing),
+					eV = e.getVelocity(),
+					eHd = e.getHeadingRadians();
+			// These constants make calculating the quadratic coefficients below easier
+			final double A = (eX - rX)/bV;
+			final double B = eV/bV*Math.sin(eHd);
+			final double C = (eY - rY)/bV;
+			final double D = eV/bV*Math.cos(eHd);
+			// Quadratic coefficients: a*(1/t)^2 + b*(1/t) + c = 0
+			final double a = A*A + C*C;
+			final double b = 2*(A*B + C*D);
+			final double c = (B*B + D*D - 1);
+			final double discrim = b*b - 4*a*c;
+			if (discrim >= 0) {
+				// Reciprocal of quadratic formula
+				final double t1 = 2*a/(-b - Math.sqrt(discrim));
+				final double t2 = 2*a/(-b + Math.sqrt(discrim));
+				final double t = Math.min(t1, t2) >= 0 ? Math.min(t1, t2) : Math.max(t1, t2);
+				// Assume enemy stops at walls
+				final double endX = limit1(
+						eX + eV*t*Math.sin(eHd),
+						ROBOT_WIDTH/2, getBattleFieldWidth() - ROBOT_WIDTH/2);
+				final double endY = limit1(
+						eY + eV*t*Math.cos(eHd),
+						ROBOT_HEIGHT/2, getBattleFieldHeight() - ROBOT_HEIGHT/2);
+
+				setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(
+						Math.atan2(endX - rX, endY - rY)
+						- getGunHeadingRadians()));
+				setFire(FIREPOWER);    
+			}
+		}
+		
+		
+	}
+	
+
+
+	public void onHitByBullet(HitByBulletEvent e) {	// where we learn about how we got hit, and use it to avoid similar situations in the future
+		// If the _enemyWaves collection is empty, we must have missed the
+		// detection of this wave somehow.
+		if (!_enemyWaves.isEmpty()) {
+			Point2D.Double hitBulletLocation = new Point2D.Double(
+					e.getBullet().getX(), e.getBullet().getY());
+			EnemyWave hitWave = null;
+
+			// look through the EnemyWaves, and find one that could've hit us.
+			for (int x = 0; x < _enemyWaves.size(); x++) {
+				EnemyWave ew = (EnemyWave)_enemyWaves.get(x);
+
+				if (Math.abs(ew.distanceTraveled - 
+						_myLocation.distance(ew.fireLocation)) < 50
+						&& Math.abs(bulletVelocity(e.getBullet().getPower()) 
+								- ew.bulletVelocity) < 0.001) {
+					hitWave = ew;
+					break;
+				}
+			}
+
+			if (hitWave != null) {
+				logHit(hitWave, hitBulletLocation); //finds where we were hit and the x and y coordinates of the enemy bot
+				//for future reference
+
+				// We can remove this wave now, of course.
+				_enemyWaves.remove(_enemyWaves.lastIndexOf(hitWave));
+			}
+		}
+	}
+
+	public EnemyWave getClosestSurfableWave() {
+		double closestDistance = 50000; // just used some very large number here
+		EnemyWave surfWave = null;
+
+		for (int x = 0; x < _enemyWaves.size(); x++) {
+			EnemyWave ew = (EnemyWave)_enemyWaves.get(x);
+			double distance = _myLocation.distance(ew.fireLocation)
+					- ew.distanceTraveled;
+
+			if (distance > ew.bulletVelocity && distance < closestDistance) {
+				surfWave = ew;
+				closestDistance = distance;
+			}
+		}
+
+		return surfWave;
+	}
+	
+	private double limit1(double value, double min, double max) 
+	{
+		return Math.min(max, Math.max(min, value));
+	}
+
+
+	// Given the EnemyWave that the bullet was on, and the point where we
+	// were hit, calculate the index into our stat array for that factor.
+	public static int getFactorIndex(EnemyWave ew, Point2D.Double targetLocation) {
+		/*offset angle is the relative angle that he aimed at to hit us and the current angle from us to the wave source minus the original angle from us to the wave source at fire time*/
+		double offsetAngle = (absoluteBearing(ew.fireLocation, targetLocation)
+				- ew.directAngle);
+		double factor = Utils.normalRelativeAngle(offsetAngle)
+				/ maxEscapeAngle(ew.bulletVelocity) * ew.direction;
+
+		return (int)limit(0,
+				(factor * ((BINS - 1) / 2)) + ((BINS - 1) / 2),
+				BINS - 1);
+	}
+
+	// Given the EnemyWave that the bullet was on, and the point where we
+	// were hit, update our stat array to reflect the danger in that area.
+
+	public void logHit(EnemyWave ew, Point2D.Double targetLocation) {
+		//once we figured out which wave hit us it is passed here along with the location of the bullet that //hit us to update our stats
+		int index = getFactorIndex(ew, targetLocation);
+
+		for (int x = 0; x < BINS; x++) {
+			// for the spot bin that we were hit on, add 1;
+			// for the bins next to it, add 1 / 2;
+			// the next one, add 1 / 5; and so on...
+			_surfStats[x] += 1.0 / (Math.pow(index - x, 2) + 1);
+		}
+	}
+
+	class EnemyWave 
+	//keeps track of the enemywave which holds variables of where the bullet was fired, the fire time, and the angles, speed, and distance traveled of the bullet or the wave because bots can't really keep track of bullets so much as the drop in energy. 
+	{
+		Point2D.Double fireLocation; //point where enemy was when they fired
+		long fireTime; //time (tick) when bullet was fired
+		double bulletVelocity, directAngle, distanceTraveled; //information of bullet movement
+		int direction; //
+
+		public EnemyWave() { }
+	}
+
+	public double wallSmoothing(Point2D.Double botLocation, double angle, int orientation) //takes x and y coordinates and makes sure
+	//we don't run in to the wall using the rectangle we set for it waay up top in the main declaration of variables and also a Wall Stick which really makes sure the bot can go fast along the wall 
+	{
+		while (!_fieldRect.contains(project(botLocation, angle, WALL_STICK))) //tests to see if we are inside of the perimeter of the walls and turns
+		{
+			angle += orientation*0.05;
+		}
+		return angle;
+	}
+
+
+	public static Point2D.Double project(Point2D.Double sourceLocation,  
+			double angle, double length) 
+	//returns a point for the bot - called Point2D
+	{		
+		return new Point2D.Double(sourceLocation.x + Math.sin(angle) * length,
+				sourceLocation.y + Math.cos(angle) * length);
+	}
+
+	public static double absoluteBearing(Point2D.Double source, Point2D.Double target) 
+	//returns the difference between two angles to change the direction of the bot towards the targeted enemy bot f x and y
+	{
+		return Math.atan2(target.x - source.x, target.y - source.y);
+	}
+
+	public static double limit(double min, double value, double max) 
+	{
+		return Math.max(min, Math.min(value, max));
+	}
+	
+	public static double bulletVelocity(double power) 
+	//returns the bulletVelocity
+	{
+		return (20.0 - (3.0*power));
+	}
+
+	public static double maxEscapeAngle(double velocity) 
+	{
+		return Math.asin(8.0/velocity);
+	}
+
+	public static void setBackAsFront(AdvancedRobot robot, double goAngle) { //turns robot around efficiently
+		double angle =
+				Utils.normalRelativeAngle(goAngle - robot.getHeadingRadians());
+		if (Math.abs(angle) > (Math.PI/2)) {
+			if (angle < 0) {
+				robot.setTurnRightRadians(Math.PI + angle);
+			} else {
+				robot.setTurnLeftRadians(Math.PI - angle);
+			}
+			robot.setBack(100);
+		} else {
+			if (angle < 0) {
+				robot.setTurnLeftRadians(-1*angle);
+			} else {
+				robot.setTurnRightRadians(angle);
+			}
+			robot.setAhead(100);
+		}
+	}
+
+	/***** GUN ********/
+
+	public void onRobotDeath(RobotDeathEvent e) 
+	//what the bot does when it dies
+	{
+		_enemies.get(e.getName()).alive = false;
+		_nearestDistance = Double.POSITIVE_INFINITY;
+	}
+
+	private double evalDestinationRisk(Point2D.Double destination) 
+	//used in minimum risk movement strategy - decides the risk of moving to a certain area of the battlefield
+	{
+		double risk = 0;
+
+		for (EnemyData enemy1 : _enemies.values()) 
+			//how close are enemies? 
+		{
+			double distSq = enemy1.distanceSq(destination);
+			int closer = 0;
+			for (EnemyData enemy2 : _enemies.values()) {
+				if (enemy1.distanceSq(enemy2) < distSq) {
+					closer++;
+				}
+			}
+
+			java.awt.geom.Point2D.Double myLocation = myLocation(); //set bot location
+			risk += Math.max(0.5, Math.min(enemy1.energy / getEnergy(), 2))
+					* (1 + Math.abs(Math.cos(absoluteBearing(myLocation, destination)
+							- absoluteBearing(myLocation, enemy1))))
+							/ closer
+							/ distSq
+							/ (200000 + destination.distanceSq(
+									getBattleFieldWidth() / 2, getBattleFieldHeight() / 2));
+		}
+
+		for (int x = 1; x < 6; x++) {
+			try {
+				risk *= 1 + (500 / x
+						/ ((Point2D) _recentLocations.get(x * 10)).distanceSq(destination));
+			} catch (Exception ex) {
+			}
+		}
+
+		return risk;
+	}
+
+	public static double square(double x) 
+	//returns the square of x
+	{
+		return x * x;
+	}
+
+	private Point2D.Double myLocation() 
+	//returns bots location
+	{
+		return new Point2D.Double(getX(), getY());
+	}
+
+	public class DisplacementTimer extends Condition 
+	// public class for a timer which helps in firing based on a displacement Vector 
+	{
+		EnemyData enemyData;
+		Point2D.Double targetLocation;
+		double targetHeading;
+		Point2D.Double displacementVector;
+		int bulletTicks;
+		int timer;
+
+		public boolean test() 
+		//tests to see the enemy's distance in relation to bulletTicks and whether or not the enemy is alive
+		{
+			if (++timer > bulletTicks && enemyData.alive) {
+				displacementVector.setLocation(
+						absoluteBearing(targetLocation, enemyData) - targetHeading,
+						targetLocation.distance(enemyData) / bulletTicks);
+				removeCustomEvent(this);
+			}
+			return false;
+		}
+	}
+
+	@SuppressWarnings("serial")
+	public static class EnemyData extends Point2D.Double 
+	//data for enemy bot 
+	{
+		public double energy; //enemy bot energy
+		public boolean alive; //is the enemy bot dead?
+		public Point2D.Double[][][] gunVectors = new Point2D.Double[5][5][200]; //array of vectors used in guess factoring 
+		public Point2D.Double[] lastVectors;
+		public int nextIndex = 0;
+		public double heading;
+		public long lastScanTime;
+	}
+
+	public static class MeleeFiringAngle 
+	//Firing Angle class
+	{
+		public double angle;
+		public double distance;
+		public double bandwidth;
+
+		public MeleeFiringAngle(double angle, double distance, double bandwidth) 
+		//Firing Angle for the Gun constructor
+		{
+			this.angle = angle;
+			this.distance = distance;
+			this.bandwidth = bandwidth;
+		}
+	}
+
+
+}
+
+
+
+
+
